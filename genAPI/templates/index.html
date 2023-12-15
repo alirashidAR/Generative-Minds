@@ -1,10 +1,27 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
+    <meta charset="UTF-8">
     <title>Generated Image</title>
 </head>
+
 <body>
     <h1>Generated Image</h1>
-    <img src="{{ image_url }}" alt="Generated Image">
+    <div id="image-container">
+        <img id="generated-image" src="" alt="Generated Image">
+    </div>
+    <p id="elapsed-time">Elapsed Time: <span id="time-value"></span> seconds</p>
+
+    <script>
+        function displayGeneratedImage(responseData) {
+            // Display the generated image
+            document.getElementById("generated-image").src = responseData.image;
+
+            // Display the elapsed time
+            document.getElementById("time-value").textContent = responseData.time.toFixed(2);
+        }
+    </script>
 </body>
+
 </html>
