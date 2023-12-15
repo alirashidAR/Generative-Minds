@@ -2,116 +2,94 @@ import base64
 import numpy as np
 import io
 from PIL import Image
-from flask import Flask, render_template, redirect,request
+from flask import Flask, render_template, redirect, request, jsonify
 import tensorflow as tf
 from tensorflow import keras
-from keras.layers import Input, Conv2D, Conv2DTranspose,LeakyReLU, Activation, Concatenate, Dropout, BatchNormalization, MaxPooling2D
-from keras.optimizers import Adam
-from keras.initializers import RandomNormal
-from keras.models import Model
-from keras.preprocessing.image import load_img
-import numpy as np
-import matplotlib.pyplot as plt 
+from model import ImageGenModel
+from postprocess import PostProcess
+import time
+import matplotlib.pyplot as plt
+
+model_path = r"C:\Users\Ali Rashid\Desktop\Generative-Minds\g_model_052000.h5"
+post_model_path = r"C:\Users\Ali Rashid\Desktop\Generative-Minds\model_10.h5"
+
+main_model = ImageGenModel(model_path)
+post_model = PostProcess(post_model_path)
+
+app = Flask(__name__, static_folder="static", template_folder="templates")
 
 
-def define_encoder_block(layer_in,n_filters,batchnorm=True):
-    
-    init=RandomNormal(stddev=0.02,seed=1)
-
-    g=Conv2D(n_filters,(4,4),strides=(2,2),padding='same',kernel_initializer=init)(layer_in)
-    if batchnorm:
-        g=BatchNormalization()(g,training=True)
-    g=LeakyReLU(alpha=0.2)(g)
-    
-    return g
-
-def define_decoder_block(layer_in,skip_in,n_filters,dropout=True):
-    
-    init=RandomNormal(stddev=0.02,seed=1)
-
-    g=Conv2DTranspose(n_filters,(4,4),strides=(2,2),padding='same',kernel_initializer=init)(layer_in)
-    g=BatchNormalization()(g,training=True)
-    if dropout:
-        g=Dropout(0.5)(g,training=True)
-    g=Concatenate()([g,skip_in])
-    g=Activation('relu')(g)
-
-    return g
-
-def define_generator(image_shape=(256,256,3)):
-
-    init=RandomNormal(stddev=0.02,seed=1)
-
-    in_image=Input(shape=image_shape)
-
-    e1=define_encoder_block(in_image,64,batchnorm=False)
-    e2=define_encoder_block(e1,128)
-    e3=define_encoder_block(e2,256)
-    e4=define_encoder_block(e3,512)
-    e5=define_encoder_block(e4,512)
-    e6=define_encoder_block(e5,512)
-    e7=define_encoder_block(e6,512)
-
-    b=Conv2D(512,(4,4),strides=(2,2),padding='same',kernel_initializer=init)(e7)
-    b=Activation('relu')(b)
-
-    d1=define_decoder_block(b,e7,512)
-    d2=define_decoder_block(d1,e6,512)
-    d3=define_decoder_block(d2,e5,512)
-    d4=define_decoder_block(d3,e4,512,dropout=False)
-    d5=define_decoder_block(d4,e3,256,dropout=False)
-    d6=define_decoder_block(d5,e2,128,dropout=False)
-    d7=define_decoder_block(d6,e1,64,dropout=False)
-
-    g=Conv2DTranspose(image_shape[2],(4,4),strides=(2,2),padding='same',kernel_initializer=init)(d7)
-    out_image=Activation('tanh')(g)
-
-    model=Model(in_image,out_image)
-    return model
-
-
-
-g_model=define_generator((256,256,3))
-g_model.load_weights(r"C:\Users\Ali Rashid\Desktop\Generative-Minds\g_model_052000.h5")
-
-
-app = Flask(__name__)
-
-@app.route('/')
+@app.route("/draw")
 def upload_form():
-    return render_template('upload.html')
+    return render_template("draw.html")
 
 
-@app.route('/predicted_image',methods=['POST'])
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+@app.route("/predicted_image", methods=["POST"])
 def generated():
-    if 'drawing' not in request.files:
-        return redirect(request.url)  #Return to the same url from where the request came from
-    
-    drawing_file= request.files['drawing']
-    if drawing_file.filename == '':
-        return redirect(request.url)
-    
+    if "drawing" not in request.json:
+        return "No drawing data received", 400
+
+    drawing_file = request.json["drawing"]
+
     if drawing_file:
-        image = Image.open(drawing_file)
-        image = image.convert('RGB')
-        image = image.resize((256,256))
-        image_array = np.array(image) / 127.5 - 1 #Normalise the image to [-1,1]
+        drawing_image = Image.open(
+            io.BytesIO(base64.b64decode(drawing_file.split(",")[1]))
+        )
+        img = drawing_image.convert("RGBA")
 
-        img = g_model.predict(np.expand_dims(image_array, axis=0))
+        new_img = Image.new("RGBA", img.size, (255, 255, 255))
 
-        res = Image.fromarray(np.uint8((img[0] + 1) * 127.5)) #De-normalise the image to [0,255] range 
+        # Paste the original image onto the new image
+        new_img.paste(img, (0, 0), img)
 
-    
+        target_size = (256, 256)  # Set your desired target size here
+        input_img = new_img.resize(target_size)
+
+        input_img = input_img.convert("RGB")
+
+
+        plt.imshow(input_img)
+        plt.show()
+
+        start_time = time.time()  # Record the start time
+
+        img = main_model.generate(input_img)
+        plt.imshow(img[0])
+        plt.show()
+        img_gen = img[0]
+
+        img_post = post_model.process(input_img, img_gen)
+        img_post_advanced = post_model.process(
+            input_img,
+            img_gen,
+            model_cycles=1,
+            advanced=True,
+            border_padding=2,
+        )
+
+        end_time = time.time()  # Record the end time
+        elapsed_time = end_time - start_time  # Calculate elapsed time
+
+        res = Image.fromarray(np.uint8(img_post_advanced[0]))
+
         image_io = io.BytesIO()
-        res.save(image_io, format='JPEG') #This saves the image in-memory of the server as a JPEG file
+        res.save(image_io, format="JPEG")
 
         image_io.seek(0)
 
-        # Pass the image data to the HTML template
-        image_url = "data:image/jpeg;base64," + base64.b64encode(image_io.read()).decode('utf-8')
+        image_url = "data:image/jpeg;base64," + base64.b64encode(
+            image_io.read()
+        ).decode("utf-8")
 
-        return render_template('index.html', image_url=image_url)
+        response_data = {"image": image_url, "time": elapsed_time}
+
+        return jsonify(response_data)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
