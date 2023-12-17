@@ -1,33 +1,90 @@
 const canvas = document.getElementById('drawCanvas');
 const ctx = canvas.getContext('2d');
-let painting = false;
+const colorPicker = document.getElementById('colorPicker');
+const shapes = [];
+let isDrawing = false;
+let startRectX, startRectY;
+let drawSquareMode = false;
 
-function startPosition(e) {
-    painting = true;
-    draw(e);
+function drawShapes() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    shapes.forEach(shape => {
+        ctx.lineWidth = 2;
+        ctx.fillStyle = shape.color;
+        if (shape.type === 'square') {
+            ctx.fillRect(shape.startX, shape.startY, shape.width, shape.height);
+            ctx.strokeRect(shape.startX, shape.startY, shape.width, shape.height);
+            ctx.strokeStyle = '#000';
+        } else if (shape.type === 'room') {
+            ctx.fillRect(shape.x, shape.y, 9, 9);
+        }
+    });
 }
 
-function endPosition() {
-    painting = false;
-    ctx.beginPath();
-}
+document.getElementById('drawSquareBtn').addEventListener('click', function () {
+    drawSquareMode = true;
+});
 
-function draw(e) {
-    if (!painting) return;
+document.getElementById('drawRoomBtn').addEventListener('click', function () {
+    drawSquareMode = false;
+});
 
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = document.getElementById('colorPicker').value; // Get selected color
+canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    startRectX = e.clientX - canvas.getBoundingClientRect().left;
+    startRectY = e.clientY - canvas.getBoundingClientRect().top;
+});
 
-    ctx.lineTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(e.clientX - canvas.offsetLeft, e.clientY - canvas.offsetTop);
-}
+canvas.addEventListener('mousemove', (e) => {
+    if (isDrawing === true) {
+        const currentX = e.clientX - canvas.getBoundingClientRect().left;
+        const currentY = e.clientY - canvas.getBoundingClientRect().top;
+        const width = currentX - startRectX;
+        const height = currentY - startRectY;
 
-canvas.addEventListener('mousedown', startPosition);
-canvas.addEventListener('mouseup', endPosition);
-canvas.addEventListener('mousemove', draw);
+        drawShapes();
+
+        if (drawSquareMode) {
+            ctx.fillStyle = colorPicker.value;
+            ctx.fillRect(startRectX, startRectY, width, height);
+            ctx.strokeStyle = '#000';
+            ctx.strokeRect(startRectX, startRectY, width, height);
+        } else {
+            const x = Math.floor(startRectX / 10) * 10;
+            const y = Math.floor(startRectY / 10) * 10;
+            ctx.fillStyle = colorPicker.value;
+            ctx.fillRect(x, y, 9, 9);
+        }
+    }
+});
+
+canvas.addEventListener('mouseup', () => {
+    if (isDrawing === true) {
+        isDrawing = false;
+        const currentX = event.clientX - canvas.getBoundingClientRect().left;
+        const currentY = event.clientY - canvas.getBoundingClientRect().top;
+        const width = currentX - startRectX;
+        const height = currentY - startRectY;
+
+        if (drawSquareMode) {
+            shapes.push({
+                startX: startRectX,
+                startY: startRectY,
+                width: width,
+                height: height,
+                type: 'square',
+                color: colorPicker.value
+            });
+        } else {
+            const x = Math.floor(startRectX / 10) * 10;
+            const y = Math.floor(startRectY / 10) * 10;
+            shapes.push({ x, y, type: 'room', color: colorPicker.value });
+        }
+
+        drawShapes();
+    }
+});
+
 
 // Function to send canvas image to Flask endpoint
 document.getElementById('sendBtn').addEventListener('click', function () {
@@ -43,12 +100,14 @@ document.getElementById('sendBtn').addEventListener('click', function () {
         .then(response => response.json())
         .then(data => {
             console.log('Received response from Flask:', data);
-            // Handle the response accordingly (if needed)
+
+            const generatedImage = document.getElementById('generatedImage');
+            generatedImage.src = data.image;
+            generatedImage.style.display = 'block'; // Show the received image
         })
         .catch(error => {
             console.error('Error sending image to Flask:', error);
             // Handle errors accordingly
         });
 });
-
 
