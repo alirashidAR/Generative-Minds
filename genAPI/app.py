@@ -19,16 +19,6 @@ post_model = PostProcess(post_model_path)
 app = Flask(__name__, static_folder="static", template_folder="templates")
 
 
-@app.route("/draw")
-def upload_form():
-    return render_template("draw.html")
-
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
 @app.route("/predicted_image", methods=["POST"])
 def generated():
     if "drawing" not in request.json:
@@ -92,4 +82,4 @@ def generated():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
