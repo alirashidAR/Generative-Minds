@@ -1,2 +1,5 @@
 model_10.h5
 g_model_052000.h5
+
+client/node_modules
+server/node_modules
