@@ -1,21 +1,32 @@
-# GAN Architectural Model
-- I'll add markdowns to the code soon guys(sorry for that)
+# FloorPlanGAN
 
-### Citations:
-- Dataset: RPLAN Dataset (http://staff.ustc.edu.cn/~fuxm/projects/DeepLayout/index.html)
+FloorPlanGAN is a Generative Adversarial Network (GAN) designed to generate 2D floor plans based on user preferences. By leveraging deep learning techniques, the model learns from real-world architectural layouts to produce realistic and customizable floor plans tailored to specified criteria. 
 
+## Features
+- **User-Centric Design:** Allows users to input specific preferences for the floor plan layout.
+- **Realistic Output:** Generates high-quality 2D floor plans that closely resemble actual architectural designs.
+- **Efficient Workflow:** Streamlines the design process for architects, interior designers, and researchers by quickly providing multiple layout options.
 
-### Setting up the model api:
+## Getting Started
+To set up and run the FloorPlanGAN model, follow these steps:
 
-Go in the GenAPI folder
+1. Navigate to the `genAPI` folder:
+   ```bash
+   cd genAPI
+   ```
 
-```
-cd genAPI
-```
-Setup the two models model_10.h5 and g_model.h5 file paths 
+2. Set up the paths for the required model files:
+   - `model_10.h5`
+   - `g_model.h5`
 
-Run the app.py file
+3. Run the application:
+   ```bash
+   python app.py
+   ```
 
-```
-python app.py
-```
+## Citations
+- Dataset: [RPLAN Dataset](http://staff.ustc.edu.cn/~fuxm/projects/DeepLayout/index.html)
+
+---
+
+Feel free to modify any sections as needed! Let me know if you need any other information included.
